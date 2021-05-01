@@ -1,3 +1,6 @@
+// this is a "scratch" file. I'm using this space to test and edit
+// functions without messing up what's already working
+
 package main
 
 import (
@@ -41,6 +44,11 @@ func DetectBlueHand() {
 		/////////////////////////////
 		// hand detection stuff
 		contours := gocv.FindContours(mask, gocv.RetrievalExternal, gocv.ChainApproxSimple)
+		if contours.Size() <= 0 {
+			ImShow(img, wt)
+			continue
+		}
+
 		c := GetBiggestContour(contours)
 		gocv.ConvexHull(c, &hull, true, false)
 		gocv.ConvexityDefects(c, hull, &defects)
@@ -48,6 +56,7 @@ func DetectBlueHand() {
 		var angle float64
 		defectCount := 0
 		for i := 0; i < defects.Rows(); i++ {
+
 			start := c.At(int(defects.GetIntAt(i, 0)))
 			end := c.At(int(defects.GetIntAt(i, 1)))
 			far := c.At(int(defects.GetIntAt(i, 2)))
@@ -60,10 +69,11 @@ func DetectBlueHand() {
 			angle = math.Acos((math.Pow(b, 2)+math.Pow(c, 2)-math.Pow(a, 2))/(2*b*c)) * 57
 
 			// ignore angles > 90 and highlight rest with dots
-			if angle <= 65 {
+			if angle <= 70 {
 				defectCount++
 				gocv.Circle(&img, far, 1, red, 2)
 			}
+
 		}
 		status := fmt.Sprintf("defectCount: %d", defectCount+1)
 

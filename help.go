@@ -1,19 +1,20 @@
-// this is a "scratch" file. I'm using this space to test and edit
-// functions without messing up what's already working
-
 package main
 
 import (
 	"fmt"
+	"gobot.io/x/gobot"
+	"gobot.io/x/gobot/platforms/dji/tello"
 	"gocv.io/x/gocv"
 	"image"
 	"image/color"
+	"io"
+	"log"
 	"math"
+	"os/exec"
+	"time"
 )
 
 func Help() {
-
-	deviceID := 0
 	size := image.Point{X: 600, Y: 600}
 	blur := image.Point{X: 11, Y: 11}
 	wt := gocv.NewWindow("Just the Hand")
@@ -24,12 +25,54 @@ func Help() {
 	wt.ResizeWindow(1400, 1400)
 	wt.MoveWindow(0, 0)
 
-	video, _ := gocv.OpenVideoCapture(deviceID)
-	defer video.Close()
+	// ffmpeg stuff
+	ffmpeg := exec.Command("ffmpeg", "-i", "pipe:0", "-pix_fmt", "bgr24", "-vcodec", "rawvideo",
+		"-an", "-sn", "-s", "960x720", "-f", "rawvideo", "pipe:1")
+	ffmpegIn, _ := ffmpeg.StdinPipe()
+	ffmpegOut, _ := ffmpeg.StdoutPipe()
+	if err := ffmpeg.Start(); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	// drone stuff
+	drone := tello.NewDriver("8890")
+	drone.On(tello.ConnectedEvent, func(data interface{}) {
+		fmt.Println("Connected")
+		drone.StartVideo()
+		drone.SetExposure(1)
+		drone.SetVideoEncoderRate(4)
+
+		gobot.Every(100*time.Millisecond, func() {
+			drone.StartVideo()
+		})
+	})
+	drone.On(tello.VideoFrameEvent, func(data interface{}) {
+		pkt := data.([]byte)
+		if _, err := ffmpegIn.Write(pkt); err != nil {
+			fmt.Println(err)
+		}
+	})
+	robot := gobot.NewRobot("tello",
+		[]gobot.Connection{},
+		[]gobot.Device{drone},
+	)
+	robot.Start(false)
 
 	for {
-		if !video.Read(&img) {
-			break
+		buf := make([]byte, frameSize)
+		if _, err := io.ReadFull(ffmpegOut, buf); err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		img, err := gocv.NewMatFromBytes(720, 960, gocv.MatTypeCV8UC3, buf)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		if img.Empty() {
+			continue
 		}
 
 		// cleaning up the image
@@ -44,6 +87,11 @@ func Help() {
 		/////////////////////////////
 		// hand detection stuff
 		contours := gocv.FindContours(mask, gocv.RetrievalExternal, gocv.ChainApproxSimple)
+		if contours.Size() <= 0 {
+			ImShow(img, wt)
+			continue
+		}
+
 		c := GetBiggestContour(contours)
 		gocv.ConvexHull(c, &hull, true, false)
 		gocv.ConvexityDefects(c, hull, &defects)
@@ -51,6 +99,7 @@ func Help() {
 		var angle float64
 		defectCount := 0
 		for i := 0; i < defects.Rows(); i++ {
+
 			start := c.At(int(defects.GetIntAt(i, 0)))
 			end := c.At(int(defects.GetIntAt(i, 1)))
 			far := c.At(int(defects.GetIntAt(i, 2)))
@@ -63,10 +112,11 @@ func Help() {
 			angle = math.Acos((math.Pow(b, 2)+math.Pow(c, 2)-math.Pow(a, 2))/(2*b*c)) * 57
 
 			// ignore angles > 90 and highlight rest with dots
-			if angle <= 65 {
+			if angle <= 70 {
 				defectCount++
 				gocv.Circle(&img, far, 1, red, 2)
 			}
+
 		}
 		status := fmt.Sprintf("defectCount: %d", defectCount+1)
 

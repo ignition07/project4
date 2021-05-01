@@ -5,6 +5,10 @@ import (
 	"image/color"
 )
 
+const (
+	frameSize = 960 * 720 * 3
+)
+
 var (
 	/*  HSV values
 	--------------
@@ -14,9 +18,12 @@ var (
 	These too:
 		lhsv   = gocv.Scalar{Val1: 101, Val2: 133, Val3: 71}
 		hhsv   = gocv.Scalar{Val1: 123, Val2: 255, Val3: 255}
+	Good for drone:
+		lhsv   = gocv.Scalar{Val1: 109, Val2: 128, Val3: 31}
+		hhsv   = gocv.Scalar{Val1: 128, Val2: 255, Val3: 255}
 	*/
-	lhsv = gocv.Scalar{Val1: 101, Val2: 133, Val3: 71}
-	hhsv = gocv.Scalar{Val1: 123, Val2: 255, Val3: 255}
+	lhsv = gocv.Scalar{Val1: 109, Val2: 128, Val3: 31}
+	hhsv = gocv.Scalar{Val1: 128, Val2: 255, Val3: 255}
 
 	// Mats
 	mask      = gocv.NewMat()
