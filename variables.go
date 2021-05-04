@@ -26,8 +26,8 @@ var (
 		hhsv = gocv.Scalar{Val1: 130, Val2: 193, Val3: 255}
 	*/
 
-	lhsv = gocv.Scalar{Val1: 101, Val2: 133, Val3: 71}
-	hhsv = gocv.Scalar{Val1: 123, Val2: 255, Val3: 255}
+	lhsv = gocv.Scalar{Val1: 107, Val2: 42, Val3: 26}
+	hhsv = gocv.Scalar{Val1: 158, Val2: 255, Val3: 191}
 
 	// Mats
 	mask      = gocv.NewMat()
@@ -41,10 +41,10 @@ var (
 	defects   = gocv.NewMat()
 
 	// Movement
-	moveRight    = false
-	moveLeft     = false
-	moveForward  = false
-	moveBackward = false
+	fingerCount []int
+	thumbCount  []int
+	xDir        bool
+	yDir        bool
 
 	// Colors
 	blue  = color.RGBA{B: 255}

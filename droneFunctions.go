@@ -7,10 +7,12 @@ package main
 
 import (
 	"fmt"
+	"gobot.io/x/gobot"
 	"gocv.io/x/gocv"
 	"image"
 	"io"
 	"log"
+	"time"
 )
 
 // GetHand is used to get HSV values for glove with drone camera
@@ -29,7 +31,8 @@ func GetHand() {
 	lv := wi.CreateTrackbar("Low V", 255)
 	hv := wi.CreateTrackbar("High V", 255)
 
-	ffmpegOut := ConnectDrone()
+	ffmpegOut, drone := ConnectDrone()
+	fmt.Println(drone)
 
 	for {
 		buf := make([]byte, frameSize)
@@ -65,17 +68,32 @@ func GetHand() {
 
 // DetectBlueHand detects glove using drone camera and ffmpeg
 func DetectBlueHand() {
+
+	xmlFile := "haarcascade_frontalface_default.xml"
+	// load classifier to recognize faces
+	classifier := gocv.NewCascadeClassifier()
+	defer classifier.Close()
+	if !classifier.Load(xmlFile) {
+		fmt.Printf("Error reading cascade file: %v\n", xmlFile)
+		return
+	}
+
 	size := image.Point{X: 600, Y: 600}
 	blur := image.Point{X: 11, Y: 11}
+
 	wt := gocv.NewWindow("Just the Hand")
-	defer wt.Close()
-	img := gocv.NewMat()
-	defer img.Close()
 
 	wt.ResizeWindow(1400, 1400)
 	wt.MoveWindow(0, 0)
 
-	ffmpegOut := ConnectDrone()
+	ffmpegOut, drone := ConnectDrone()
+
+	//TakeOff the Drone
+	gobot.After(3*time.Second, func() {
+		drone.TakeOff()
+		fmt.Println("Tello Taking Off...")
+		time.Sleep(time.Second * 3)
+	})
 
 	for {
 		buf := make([]byte, frameSize)
@@ -92,6 +110,8 @@ func DetectBlueHand() {
 		if img.Empty() {
 			continue
 		}
+
+		rects := classifier.DetectMultiScaleWithParams(img, 1.1, 1, 0, image.Pt(100, 100), image.Pt(500, 500))
 
 		// cleaning up the image
 		gocv.Flip(img, &img, 1)
@@ -112,8 +132,27 @@ func DetectBlueHand() {
 		c := GetBiggestContour(contours)
 		gocv.ConvexHull(c, &hull, true, false)
 		gocv.ConvexityDefects(c, hull, &defects)
-		fingers := GetDefectCount(img, c, 0, 70)
-		fmt.Println(fingers)
+
+		fingers := GetDefectCount(img, c, 0, 40) + 1
+		thumb := GetDefectCount(img, c, 41, 100)
+		fingerCount = append(fingerCount, fingers)
+		fingersMode := GetMode(fingerCount)
+		thumbCount = append(thumbCount, thumb)
+		thumbMode := GetMode(thumbCount)
+
+		if len(fingerCount) > 50 {
+			fingerCount = Trim(fingerCount)
+		}
+		if len(thumbCount) > 50 {
+			thumbCount = Trim(thumbCount)
+		}
+
+		if len(rects) > 0 {
+			instruction := GetInstruction(fingersMode, thumbMode)
+			DoInstruction(instruction, drone)
+		} else {
+			DoInstruction(6, drone)
+		}
 
 		if ImShow(img, wt) {
 			break

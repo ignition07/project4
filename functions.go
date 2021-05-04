@@ -1,9 +1,13 @@
 // Shared functions go here:
 
-// ConnectDrone()
-// GetBiggestContour()
-// GetPosFloat()
-// ImShow()
+// ConnectDrone
+// GetBiggestContour
+// GetPosFloat
+// ImShow
+// GetInstruction
+// DoInstruction
+// Trim
+// GetMode
 
 package main
 
@@ -16,11 +20,12 @@ import (
 	"image/color"
 	"io"
 	"math"
+	"os"
 	"os/exec"
 	"time"
 )
 
-func ConnectDrone() io.ReadCloser {
+func ConnectDrone() (io.ReadCloser, *tello.Driver) {
 	ffmpeg := exec.Command("ffmpeg", "-i", "pipe:0", "-pix_fmt", "bgr24", "-vcodec", "rawvideo",
 		"-an", "-sn", "-s", "960x720", "-f", "rawvideo", "pipe:1")
 	ffmpegIn, _ := ffmpeg.StdinPipe()
@@ -46,12 +51,14 @@ func ConnectDrone() io.ReadCloser {
 			fmt.Println(err)
 		}
 	})
+
 	robot := gobot.NewRobot("tello",
 		[]gobot.Connection{},
 		[]gobot.Device{drone},
 	)
 	robot.Start(false)
-	return ffmpegOut
+
+	return ffmpegOut, drone
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -121,28 +128,94 @@ func ImShow(img gocv.Mat, window *gocv.Window) bool {
 
 //////////////////////////////////////////////////////////////////////
 
-func RobotMovement(fingers int, thumb int) {
-	/*
-		Here are the following scenarios you should adhere to:
+// GetInstruction checks hand position and returns an int
+func GetInstruction(fingers int, thumb int) int {
 
-		Hover -- no defects detected, closed fist - palm facing you
-		Move Left -- create an "L" shape with your hand, should detect a large angle as a defect and no normal defects
-		Move Right -- Peace symbol with two fingers - detects 1 red defect with normal angle
-		Move Backward --
-		Move Forward --
-
-
-	*/
-	if fingers == 0 && thumb == 0 { // don't show hand or make a closed back fist to camera (former is better though)
-		fmt.Println("HOVER")
-	} else if fingers == 0 && thumb == 1 { // "L" shape hand
-		moveLeft = true
-		fmt.Println("MOVE LEFT!")
-	} else if fingers == 1 && thumb == 1 { // "Peace" symbol - has one big angle and one small
-		moveRight = true
-		fmt.Println("MOVE RIGHT!")
-	} else if fingers == 4 && thumb == 0 {
-		moveBackward = true
-		fmt.Println("MOVE BACKWARD")
+	if fingers == 1 && thumb == 1 { // "L" shape hand --> left flip
+		return 1
+	} else if fingers == 2 && thumb == 0 { // "Peace" symbol --> right flip
+		return 2
+	} else if fingers == 4 && thumb == 1 { // "spread fingers" --> back flip
+		return 3
+	} else if fingers == 3 && thumb == 0 { // 3 fingers --> front flip
+		return 4
+	} else if fingers == 2 && thumb == 1 { // "Live long and prosper" --> land
+		return 5
+	} else {
+		return 0
 	}
+}
+
+//////////////////////////////////////////////////////////////////////
+
+// DoInstruction takes an int and executes movement
+func DoInstruction(instruction int, drone *tello.Driver) {
+
+	if instruction == 1 {
+		fmt.Println("GO LEFT!")
+		xDir = true
+		drone.Left(10)
+	} else if instruction == 2 {
+		fmt.Println("GO RIGHT!")
+		xDir = true
+		drone.Right(10)
+	} else if instruction == 3 {
+		fmt.Println("GO BACKWARD")
+		yDir = true
+		drone.Backward(10)
+	} else if instruction == 4 {
+		fmt.Println("GO FORWARD")
+		yDir = true
+		drone.Forward(10)
+	} else if instruction == 5 {
+		fmt.Println("LANDING")
+		drone.Land()
+		fmt.Println("GOOD BYE")
+		os.Exit(0)
+	} else if instruction == 6 {
+		fmt.Println("NO FACE DETECTED")
+		xDir = false
+		yDir = false
+	} else {
+		fmt.Println("HOVER")
+		xDir = false
+		yDir = false
+	}
+
+	if !xDir && !yDir {
+		drone.Hover()
+	}
+}
+
+//////////////////////////////////////////////////////////////////////
+
+// Trim takes a slice and returns a new slice with the last 2 values
+func Trim(s []int) []int {
+	s[0] = s[len(s)-2]
+	s[0] = s[len(s)-2]
+	return s[:2]
+}
+
+//////////////////////////////////////////////////////////////////////
+
+// GetMode from github user Napear: https://gist.github.com/Napear/df41f13bfb5c10566102
+func GetMode(s []int) (mode int) {
+	//	Create a map and populated it with each value in the slice
+	//	mapped to the number of times it occurs
+	countMap := make(map[int]int)
+	for _, value := range s {
+		countMap[value] += 1
+	}
+
+	//	Find the smallest item with greatest number of occurrence in
+	//	the input slice
+	max := 0
+	for _, key := range s {
+		freq := countMap[key]
+		if freq > max {
+			mode = key
+			max = freq
+		}
+	}
+	return
 }

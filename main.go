@@ -3,10 +3,11 @@ package main
 func main() {
 
 	//GetHandLaptop()
-	DetectBlueHandLaptop()
+	//DetectBlueHandLaptop()
+	//DetectFaceLaptop()
 
 	//GetHand()
-	//DetectBlueHand()
+	DetectBlueHand()
 
 	//DetectFace()
 
