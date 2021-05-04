@@ -2,11 +2,14 @@ package main
 
 func main() {
 
+	//GetHandLaptop()
+	DetectBlueHandLaptop()
+
 	//GetHand()
-	//Thresholded()
-	//DetectFace()
-	//DetectHand()
 	//DetectBlueHand()
-	Help()
+
+	//DetectFace()
+
+	//Help()
 
 }

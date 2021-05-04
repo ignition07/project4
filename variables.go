@@ -21,9 +21,13 @@ var (
 	Good for drone:
 		lhsv   = gocv.Scalar{Val1: 109, Val2: 128, Val3: 31}
 		hhsv   = gocv.Scalar{Val1: 128, Val2: 255, Val3: 255}
+	Also good for drone:
+		lhsv = gocv.Scalar{Val1: 108, Val2: 130, Val3: 0}
+		hhsv = gocv.Scalar{Val1: 130, Val2: 193, Val3: 255}
 	*/
-	lhsv = gocv.Scalar{Val1: 109, Val2: 128, Val3: 31}
-	hhsv = gocv.Scalar{Val1: 128, Val2: 255, Val3: 255}
+
+	lhsv = gocv.Scalar{Val1: 101, Val2: 133, Val3: 71}
+	hhsv = gocv.Scalar{Val1: 123, Val2: 255, Val3: 255}
 
 	// Mats
 	mask      = gocv.NewMat()
@@ -36,8 +40,15 @@ var (
 	hull      = gocv.NewMat()
 	defects   = gocv.NewMat()
 
+	// Movement
+	moveRight    = false
+	moveLeft     = false
+	moveForward  = false
+	moveBackward = false
+
 	// Colors
 	blue  = color.RGBA{B: 255}
 	red   = color.RGBA{R: 255}
 	green = color.RGBA{G: 255}
+	black = color.RGBA{}
 )
