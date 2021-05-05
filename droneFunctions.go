@@ -32,7 +32,14 @@ func GetHand() {
 	hv := wi.CreateTrackbar("High V", 255)
 
 	ffmpegOut, drone := ConnectDrone()
+
 	fmt.Println(drone)
+
+	//gobot.After(3*time.Second, func() {
+	//	drone.TakeOff()
+	//	fmt.Println("Tello Taking Off...")
+	//	time.Sleep(time.Second * 3)
+	//})
 
 	for {
 		buf := make([]byte, frameSize)
@@ -56,7 +63,8 @@ func GetHand() {
 			gocv.Scalar{Val1: GetPosFloat(lh), Val2: GetPosFloat(ls), Val3: GetPosFloat(lv)},
 			gocv.Scalar{Val1: GetPosFloat(hh), Val2: GetPosFloat(hs), Val3: GetPosFloat(hv)},
 			&thresholded)
-
+		gocv.Flip(img, &img, 1)
+		gocv.Flip(thresholded, &thresholded, 1)
 		if ImShow(img, wi) || ImShow(thresholded, wt) {
 			break
 		}
@@ -81,9 +89,9 @@ func DetectBlueHand() {
 	size := image.Point{X: 600, Y: 600}
 	blur := image.Point{X: 11, Y: 11}
 
-	wt := gocv.NewWindow("Just the Hand")
+	wt := gocv.NewWindow("Tello Drone")
 
-	wt.ResizeWindow(1400, 1400)
+	wt.ResizeWindow(2000, 2000)
 	wt.MoveWindow(0, 0)
 
 	ffmpegOut, drone := ConnectDrone()
@@ -93,6 +101,10 @@ func DetectBlueHand() {
 		drone.TakeOff()
 		fmt.Println("Tello Taking Off...")
 		time.Sleep(time.Second * 3)
+	})
+
+	gobot.After(60*time.Second, func() {
+		drone.Land()
 	})
 
 	for {
@@ -111,7 +123,8 @@ func DetectBlueHand() {
 			continue
 		}
 
-		rects := classifier.DetectMultiScaleWithParams(img, 1.1, 1, 0, image.Pt(100, 100), image.Pt(500, 500))
+		rects := classifier.DetectMultiScaleWithParams(img, 1.1, 1, 0, image.Pt(50, 50), image.Pt(800, 800))
+		//rects := classifier.DetectMultiScale(img)
 
 		// cleaning up the image
 		gocv.Flip(img, &img, 1)
@@ -133,26 +146,35 @@ func DetectBlueHand() {
 		gocv.ConvexHull(c, &hull, true, false)
 		gocv.ConvexityDefects(c, hull, &defects)
 
-		fingers := GetDefectCount(img, c, 0, 40) + 1
-		thumb := GetDefectCount(img, c, 41, 100)
+		fingers := GetDefectCount(img, c, 0, 80) + 1
+		thumb := GetDefectCount(img, c, 90, 110)
 		fingerCount = append(fingerCount, fingers)
 		fingersMode := GetMode(fingerCount)
 		thumbCount = append(thumbCount, thumb)
 		thumbMode := GetMode(thumbCount)
 
-		if len(fingerCount) > 50 {
-			fingerCount = Trim(fingerCount)
+		if !heightReached {
+			status1 = fmt.Sprintf("No Face Detected")
+			drone.Up(15)
 		}
-		if len(thumbCount) > 50 {
+
+		if len(fingerCount) > 50 {
+
+			if len(rects) > 0 {
+				status1 = fmt.Sprintf("I see you!")
+				heightReached = true
+				instruction := GetInstruction(fingersMode, thumbMode)
+				DoInstruction(instruction, drone)
+			} else {
+				status1 = fmt.Sprintf("No Face Detected")
+			}
+
+			fingerCount = Trim(fingerCount)
 			thumbCount = Trim(thumbCount)
 		}
 
-		if len(rects) > 0 {
-			instruction := GetInstruction(fingersMode, thumbMode)
-			DoInstruction(instruction, drone)
-		} else {
-			DoInstruction(6, drone)
-		}
+		gocv.PutText(&img, status1, image.Pt(10, 20), gocv.FontHersheyPlain, 2, red, 2)
+		gocv.PutText(&img, status2, image.Pt(10, 50), gocv.FontHersheyPlain, 2, blue, 2)
 
 		if ImShow(img, wt) {
 			break

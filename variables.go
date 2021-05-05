@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"gocv.io/x/gocv"
 	"image/color"
 )
@@ -26,8 +27,8 @@ var (
 		hhsv = gocv.Scalar{Val1: 130, Val2: 193, Val3: 255}
 	*/
 
-	lhsv = gocv.Scalar{Val1: 107, Val2: 42, Val3: 26}
-	hhsv = gocv.Scalar{Val1: 158, Val2: 255, Val3: 191}
+	lhsv = gocv.Scalar{Val1: 99, Val2: 95, Val3: 0}
+	hhsv = gocv.Scalar{Val1: 122, Val2: 255, Val3: 210}
 
 	// Mats
 	mask      = gocv.NewMat()
@@ -41,10 +42,17 @@ var (
 	defects   = gocv.NewMat()
 
 	// Movement
-	fingerCount []int
-	thumbCount  []int
-	xDir        bool
-	yDir        bool
+	fingerCount   []int
+	thumbCount    []int
+	flipLeft      = false
+	flipRight     = false
+	flipBack      = false
+	flipFront     = false
+	flipping      = false
+	heightReached = false
+
+	status1 = fmt.Sprintf("")
+	status2 = fmt.Sprintf("")
 
 	// Colors
 	blue  = color.RGBA{B: 255}

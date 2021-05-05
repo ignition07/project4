@@ -16,7 +16,6 @@ import (
 	"gobot.io/x/gobot"
 	"gobot.io/x/gobot/platforms/dji/tello"
 	"gocv.io/x/gocv"
-	"image"
 	"image/color"
 	"io"
 	"math"
@@ -104,11 +103,11 @@ func GetDefectCount(img gocv.Mat, c gocv.PointVector, min float64, max float64) 
 		}
 
 	}
-	status := fmt.Sprintf("defectCount: %d", defectCount+1)
+	//status := fmt.Sprintf("defectCount: %d", defectCount+1)
 
 	rect := gocv.BoundingRect(c)
 	gocv.Rectangle(&img, rect, color.RGBA{R: 255, G: 255, B: 255}, 2)
-	gocv.PutText(&img, status, image.Pt(10, 20), gocv.FontHersheyPlain, 1.2, red, 2)
+	//gocv.PutText(&img, status, image.Pt(10, 20), gocv.FontHersheyPlain, 1.2, red, 2)
 
 	return defectCount
 }
@@ -131,19 +130,58 @@ func ImShow(img gocv.Mat, window *gocv.Window) bool {
 // GetInstruction checks hand position and returns an int
 func GetInstruction(fingers int, thumb int) int {
 
-	if fingers == 1 && thumb == 1 { // "L" shape hand --> left flip
-		return 1
-	} else if fingers == 2 && thumb == 0 { // "Peace" symbol --> right flip
-		return 2
-	} else if fingers == 4 && thumb == 1 { // "spread fingers" --> back flip
-		return 3
-	} else if fingers == 3 && thumb == 0 { // 3 fingers --> front flip
-		return 4
-	} else if fingers == 2 && thumb == 1 { // "Live long and prosper" --> land
-		return 5
-	} else {
-		return 0
+	if !flipping {
+		if thumb == 1 { // flip front
+			if !flipFront {
+				status2 = fmt.Sprintf("I see 1 thumb - flip forward")
+				flipLeft = false
+				flipRight = false
+				flipBack = false
+				flipFront = true
+				//return 0
+			}
+		} else {
+			if fingers == 1 { // hover
+				return 5
+			} else if fingers == 2 { // flip left
+				if !flipLeft {
+					status2 = fmt.Sprintf("I see 2 fingers - flip left")
+					flipLeft = true
+					flipRight = false
+					flipBack = false
+					flipFront = false
+					return 1
+				}
+			} else if fingers == 3 { // flip back
+				if !flipBack {
+					status2 = fmt.Sprintf("I see 3 fingers - flip back")
+					flipLeft = false
+					flipRight = false
+					flipBack = true
+					flipFront = false
+					return 2
+				}
+			} else if fingers == 4 { // flip right
+				if !flipRight {
+					status2 = fmt.Sprintf("I see 4 fingers - flip right")
+					flipLeft = false
+					flipRight = true
+					flipBack = false
+					flipFront = false
+					return 3
+				}
+			} else if fingers == 5 { // land
+				status2 = fmt.Sprintf("I see 5 fingers - landing drone")
+				return 4
+			} else if fingers > 5 || thumb > 1 { // ABORT
+				return 4
+			} else {
+				status2 = fmt.Sprintf("Waiting for instruction")
+				return 5 // hover
+			}
+		}
 	}
+	return 5
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -151,38 +189,21 @@ func GetInstruction(fingers int, thumb int) int {
 // DoInstruction takes an int and executes movement
 func DoInstruction(instruction int, drone *tello.Driver) {
 
-	if instruction == 1 {
-		fmt.Println("GO LEFT!")
-		xDir = true
-		drone.Left(10)
-	} else if instruction == 2 {
-		fmt.Println("GO RIGHT!")
-		xDir = true
-		drone.Right(10)
-	} else if instruction == 3 {
-		fmt.Println("GO BACKWARD")
-		yDir = true
-		drone.Backward(10)
+	if instruction < 4 {
+		if !flipping {
+			flipping = true
+			drone.Flip(tello.FlipType(instruction))
+		}
+
 	} else if instruction == 4 {
-		fmt.Println("GO FORWARD")
-		yDir = true
-		drone.Forward(10)
-	} else if instruction == 5 {
+		status1 = fmt.Sprintf("Landing. Goodbye!")
 		fmt.Println("LANDING")
 		drone.Land()
 		fmt.Println("GOOD BYE")
 		os.Exit(0)
-	} else if instruction == 6 {
-		fmt.Println("NO FACE DETECTED")
-		xDir = false
-		yDir = false
-	} else {
-		fmt.Println("HOVER")
-		xDir = false
-		yDir = false
-	}
 
-	if !xDir && !yDir {
+	} else {
+		flipping = false
 		drone.Hover()
 	}
 }
